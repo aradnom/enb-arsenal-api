@@ -15,6 +15,7 @@
   "homepage": "https://github.com/aradnom/enb-arsenal-api",
   "dependencies": {
     "bluebird": "^2.9.34",
+    "body-parser": "^1.13.2",
     "compression": "^1.5.1",
     "express": "^4.13.1",
     "lodash": "^3.10.0",

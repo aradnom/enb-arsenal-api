@@ -1,8 +1,11 @@
+// General utility functions
+var Utility = require( './lib/utility' );
+
 // Pull in the app config
-var config = require( './lib/config' );
+var config  = require( './lib/config' );
 
 // Set up app-wide logger
-var logger = require( './lib/logger' );
+var logger  = require( './lib/logger' );
 
 // Attempt to create database connection - if we can't connect don't bother
 // doing anything else
@@ -12,10 +15,12 @@ var db;
 // Build the Express app
 var Express     = require( 'express' );
 var Compression = require( 'compression' );
+var BodyParser  = require( 'body-parser' );
 var app         = Express();
 
 // Set the app up
 app.use( Compression() );
+app.use( BodyParser.json() );
 
 // Pull in route controllers
 var apiGet    = require( './lib/routes/get' );
@@ -31,8 +36,17 @@ dbConnect
     ///////////////////////////////////////////////////////////////////////////////
 
     // Get object (Item, Vendor or Mob)
-    app.get( '/get/:type/:id', function( req, res ) {
-      apiGet( db, req.params.type, req.params.id )
+    app.all( '/get/:type/:id', function( req, res ) {
+      var id   = req.params.id;
+      var type = req.params.type;
+
+      // If type isn't valid, we out
+      if ( type !== 'item' && type !== 'mob' && type !== 'vendor' ) {
+        return res.status( 404 ).jsonp({ error: 'Nothin\' there, chief.', errorCode: 'pageNotFound' });
+      }
+
+      // Retrieve the specified item
+      apiGet( db, type, id )
         .then( function ( result ) {
           return res.jsonp({ success: true, result: result });
         })
@@ -43,8 +57,31 @@ dbConnect
         });
     });
 
-    // Other API routes
-    //app.get( '/api/dosomething', api.DoSomething );
+    // Search the database
+    app.all( '/search/:type', function( req, res ) {
+      var type  = req.params.type;
+      var query = Utility.getRequestValue( 'query', req );
+
+      // If type isn't valid, we out
+      if ( type !== 'item' && type !== 'mob' && type !== 'vendor' ) {
+        return res.status( 404 ).jsonp({ error: 'Nothin\' there, chief.', errorCode: 'pageNotFound' });
+      }
+
+      // If query wasn't passed, we also out
+      if ( ! query ) {
+        return res.jsonp({ error: 'Must pass valid search query to search.', errorCode: 'invalidParams' });
+      }
+
+      apiSearch( db, type, query )
+        .then( function ( result ) {
+          return res.jsonp({ success: true, result: result });
+        })
+        .catch( function ( err ) {
+          logger.error( 'Error fetching database object: ', err );
+
+          return res.jsonp({ error: 'Error fetching object', errorCode: 'databaseError' });
+        });
+    });
 
     // FOUR OH FOUR
     app.get( '*', function( req, res ) {
